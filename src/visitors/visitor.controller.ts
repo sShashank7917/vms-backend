@@ -1,6 +1,12 @@
-
-
-import { Body, Controller, Get, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateVisitorDto } from './create-visitor.dto';
 import { VisitorService } from './visitor.service';
@@ -15,14 +21,19 @@ export class VisitorController {
   @UseInterceptors(FileInterceptor('file'))
   create(
     @Body() dto: CreateVisitorDto,
-    @UploadedFile() file: Express.Multer.File
-  ) {
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<any> {
     return this.visitorService.register(dto, file);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Post('/returning')
+  @UseInterceptors(FileInterceptor('file'))
+  returningVisitor(@UploadedFile() file: Express.Multer.File): Promise<any> {
+    return this.visitorService.handleReturningVisitor(file);
+  }
+
   @Get()
-  list() {
+  list(): Promise<any> {
     return this.visitorService.list();
   }
 }

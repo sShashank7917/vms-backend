@@ -5,7 +5,7 @@ import axios from 'axios';
 import * as FormData from 'form-data';
 import { ConfigService } from '@nestjs/config';
 import { FaceApiResponse } from './face-api-response.interface';
-
+import { FaceMatchResponse } from './face-match-response.interface';
 
 @Injectable()
 export class VisitorService {
@@ -17,11 +17,10 @@ export class VisitorService {
   async register(dto: CreateVisitorDto, file: Express.Multer.File) {
     const conn = await this.pool.getConnection();
     try {
-      let visitor_id = await this.findOrCreateVisitor(conn, dto);
+      const visitor_id = await this.findOrCreateVisitor(conn, dto);
 
       await this.logVisit(conn, visitor_id, dto);
 
-      // Call Python face-recognition service
       const faceResult = await this.sendFaceToPython(visitor_id, file);
 
       return {
@@ -34,7 +33,39 @@ export class VisitorService {
     }
   }
 
-  private async findOrCreateVisitor(conn: oracledb.Connection, dto: CreateVisitorDto): Promise<number> {
+  async handleReturningVisitor(file: Express.Multer.File) {
+    const pythonResp = await this.matchFaceWithPython(file);
+
+    if (pythonResp.status !== 'success' || !pythonResp.visitor) {
+      throw new Error(pythonResp.message || 'Face not matched.');
+    }
+
+    const visitorId = pythonResp.visitor.visitor_id;
+
+    const conn = await this.pool.getConnection();
+    try {
+      await this.logVisit(conn, visitorId, {
+        purpose: '',
+        host: '',
+        category: '',
+        vehicle_details: '',
+        asset_details: '',
+      });
+
+      return {
+        message: 'Returning visitor logged successfully',
+        visitor: pythonResp.visitor,
+        distance: pythonResp.distance,
+      };
+    } finally {
+      await conn.close();
+    }
+  }
+
+  private async findOrCreateVisitor(
+    conn: oracledb.Connection,
+    dto: CreateVisitorDto,
+  ): Promise<number> {
     const checkSql = `
       SELECT visitor_id FROM visitors_master
       WHERE phone = :phone AND id_proof_number = :id_proof_number
@@ -69,7 +100,11 @@ export class VisitorService {
     return res.outBinds.visitor_id[0];
   }
 
-  private async logVisit(conn: oracledb.Connection, visitor_id: number, dto: CreateVisitorDto) {
+  private async logVisit(
+    conn: oracledb.Connection,
+    visitor_id: number,
+    dto: Partial<CreateVisitorDto>,
+  ) {
     const insertLogSql = `
       INSERT INTO visits_log
       (visitor_id, purpose, host, category, vehicle_details, asset_details)
@@ -79,17 +114,20 @@ export class VisitorService {
       insertLogSql,
       {
         visitor_id,
-        purpose: dto.purpose,
-        host: dto.host,
-        category: dto.category,
-        vehicle_details: dto.vehicle_details,
-        asset_details: dto.asset_details,
+        purpose: dto.purpose || '',
+        host: dto.host || '',
+        category: dto.category || '',
+        vehicle_details: dto.vehicle_details || '',
+        asset_details: dto.asset_details || '',
       },
       { autoCommit: true },
     );
   }
 
-  private async sendFaceToPython(visitor_id: number, file: Express.Multer.File): Promise<FaceApiResponse> {
+  private async sendFaceToPython(
+    visitor_id: number,
+    file: Express.Multer.File,
+  ): Promise<FaceApiResponse> {
     const formData = new FormData();
     formData.append('visitor_id', visitor_id.toString());
     formData.append('file', file.buffer, file.originalname);
@@ -105,6 +143,27 @@ export class VisitorService {
     if (res.data.status !== 'success') {
       console.error('Face recognition error:', res.data.message);
       throw new Error(res.data.message || 'Face recognition failed');
+    }
+
+    return res.data;
+  }
+
+  private async matchFaceWithPython(
+    file: Express.Multer.File,
+  ): Promise<FaceMatchResponse> {
+    const formData = new FormData();
+    formData.append('file', file.buffer, file.originalname);
+
+    const fastapiUrl =
+      this.configService.get<string>('FACE_MATCH_API_URL') ||
+      'http://localhost:8000/returning-visitor/match-face';
+
+    const res = await axios.post<FaceMatchResponse>(fastapiUrl, formData, {
+      headers: formData.getHeaders(),
+    });
+
+    if (!res.data || res.data.status !== 'success') {
+      console.error('Face match error:', res.data?.message);
     }
 
     return res.data;
