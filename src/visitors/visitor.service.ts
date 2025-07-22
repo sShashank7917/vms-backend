@@ -155,7 +155,7 @@ export class VisitorService {
     formData.append('file', file.buffer, file.originalname);
 
     const fastapiUrl =
-      this.configService.get<string>('FACE_API_URL') ||
+      this.configService.get<string>('FACE_MATCH_API_URL') ||
       'http://localhost:8000/returning-visitor/match-face';
 
     const res = await axios.post<FaceMatchResponse>(fastapiUrl, formData, {
