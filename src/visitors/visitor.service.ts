@@ -18,21 +18,21 @@ export class VisitorService {
     const conn = await this.pool.getConnection();
 
     try {
+      if (!file) {
+        throw new Error('Image file is required');
+      }
+
       let visitor_id: number;
 
       if (dto.visitor_id) {
-        // Pre-registered visitor path
         visitor_id = dto.visitor_id;
       } else {
-        // New visitor path — insert and get ID
-        visitor_id = await this.findOrCreateVisitor(conn, dto); // your existing method
+        visitor_id = await this.findOrCreateVisitor(conn, dto);
       }
 
-      // Log visit (host, purpose, etc.)
-      await this.logVisit(conn, visitor_id, dto); // your existing visit logging logic
+      await this.logVisit(conn, visitor_id, dto);
 
-      // Send face data to face recognition service
-      const result = await this.sendFaceToPython(visitor_id, file); // optional
+      const result = await this.sendFaceToPython(visitor_id, file);
 
       return {
         message: 'Visit logged successfully',
