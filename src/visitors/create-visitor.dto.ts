@@ -3,21 +3,23 @@ import {
   IsOptional,
   IsString,
   ValidateIf,
-  IsNumber,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNumber } from 'class-validator';
 
 export class CreateVisitorDto {
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   visitor_id?: number;
 
   // These fields are required only when visitor_id is not present
-  @ValidateIf(o => !o.visitor_id)
+  @ValidateIf((o) => !o.visitor_id)
   @IsString()
   @IsNotEmpty()
   full_name: string;
 
-  @ValidateIf(o => !o.visitor_id)
+  @ValidateIf((o) => !o.visitor_id)
   @IsString()
   @IsNotEmpty()
   phone: string;
