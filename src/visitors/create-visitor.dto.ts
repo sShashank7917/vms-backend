@@ -1,25 +1,38 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateIf,
+  IsNumber,
+} from 'class-validator';
 
 export class CreateVisitorDto {
+  @IsOptional()
+  @IsNumber()
+  visitor_id?: number;
+
+  // These fields are required only when visitor_id is not present
+  @ValidateIf(o => !o.visitor_id)
   @IsString()
   @IsNotEmpty()
   full_name: string;
 
+  @ValidateIf(o => !o.visitor_id)
   @IsString()
   @IsNotEmpty()
   phone: string;
 
   @IsString()
   @IsOptional()
-  email: string;
+  email?: string;
 
   @IsString()
   @IsOptional()
-  nationality: string;
+  nationality?: string;
 
   @IsString()
   @IsOptional()
-  company: string;
+  company?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -31,21 +44,21 @@ export class CreateVisitorDto {
 
   @IsString()
   @IsOptional()
-  category: string;
+  category?: string;
 
   @IsString()
   @IsOptional()
-  id_proof_type: string;
+  id_proof_type?: string;
 
   @IsString()
   @IsOptional()
-  id_proof_number: string;
+  id_proof_number?: string;
 
   @IsString()
   @IsOptional()
-  vehicle_details: string;
+  vehicle_details?: string;
 
   @IsString()
   @IsOptional()
-  asset_details: string;
+  asset_details?: string;
 }

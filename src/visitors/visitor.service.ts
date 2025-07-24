@@ -16,17 +16,28 @@ export class VisitorService {
 
   async register(dto: CreateVisitorDto, file: Express.Multer.File) {
     const conn = await this.pool.getConnection();
+
     try {
-      const visitor_id = await this.findOrCreateVisitor(conn, dto);
+      let visitor_id: number;
 
-      await this.logVisit(conn, visitor_id, dto);
+      if (dto.visitor_id) {
+        // Pre-registered visitor path
+        visitor_id = dto.visitor_id;
+      } else {
+        // New visitor path — insert and get ID
+        visitor_id = await this.findOrCreateVisitor(conn, dto); // your existing method
+      }
 
-      const faceResult = await this.sendFaceToPython(visitor_id, file);
+      // Log visit (host, purpose, etc.)
+      await this.logVisit(conn, visitor_id, dto); // your existing visit logging logic
+
+      // Send face data to face recognition service
+      const result = await this.sendFaceToPython(visitor_id, file); // optional
 
       return {
-        message: 'Visitor visit logged successfully',
+        message: 'Visit logged successfully',
         visitor_id,
-        face: faceResult,
+        face: result,
       };
     } finally {
       await conn.close();
